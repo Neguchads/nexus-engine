@@ -19,3 +19,7 @@ nexus-engine status --db state.db --run-id external
 A second identical submission is idempotent. A conflicting response or incorrect identity is rejected. A pending request cannot be dispatched again. Preserve the original request securely; if it was lost, stop and reconcile manually rather than creating a replacement run that repeats side effects. The protocol does not prove the host actually ran or enforce its token cap. No remote API, subprocess, credentials, provider installation or fallback is implemented.
 
 Future adapter: versioned capabilities, exact model/config identity, scoped permission per invocation, cancellation and timeout, resource accounting, and deterministic result verification. Use one approved host. No NAVI-specific imports.
+
+## Reconciliation
+
+`nexus-engine audit --db state.db --run-id external` provides hashes, reservation and completion states without task payloads. If an outstanding request cannot be reconciled from the original response, `nexus-engine abandon --db state.db --run-id external --reason "outcome unknown" --confirm` permanently stops the run. This does not cancel or roll back the external operation or release its reservation. Never use a new run ID as a workaround for an unknown side effect.

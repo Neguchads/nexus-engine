@@ -17,7 +17,7 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","next","submit","status"):
+    for name in ("plan","run","start","next","submit","status","audit","abandon"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
@@ -28,6 +28,9 @@ def main():
             q.add_argument("--approve",action="store_true")
         if name=="submit":
             q.add_argument("answer")
+        if name=="abandon":
+            q.add_argument("--reason",required=True)
+            q.add_argument("--confirm",action="store_true")
     a=p.parse_args()
     try:
         if a.command=="plan":
@@ -47,6 +50,13 @@ def main():
             elif a.command=="submit":
                 store.submit(a.run_id,read(a.answer))
                 result=store.status(a.run_id)
+            elif a.command=="audit":
+                result=store.audit(a.run_id)
+            elif a.command=="abandon":
+                if not a.confirm:
+                    raise Rejected("permanent abandonment requires --confirm")
+                store.abandon(a.run_id,a.reason)
+                result=store.audit(a.run_id)
             else:
                 result=store.status(a.run_id)
         print(json.dumps(result,indent=2))

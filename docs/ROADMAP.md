@@ -25,3 +25,5 @@ Pre-register task classes and success criteria before running. Compare same prov
 ## Stable gate
 
 All required tests pass on three OSs; reproducible installation and versioned artifacts; no unexpected dispatch, implicit fallback, ambiguous replay or budget accounting regression; externally reviewed security boundaries and license clearance; real host acceptance and demonstrated value on declared task classes; documented upgrade/rollback and recovery procedure. Integration into NAVI is a later independent decision.
+
+The independent engine now exposes permanent abandonment and metadata-only evidence reports. This is a conservative reconciliation policy, not automatic crash recovery for external side effects.

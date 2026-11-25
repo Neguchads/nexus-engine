@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS steps(
  run_id TEXT NOT NULL REFERENCES runs(id), node TEXT NOT NULL,
  request TEXT NOT NULL, request_hash TEXT NOT NULL,
  answer TEXT, answer_hash TEXT, PRIMARY KEY(run_id,node));
+CREATE TABLE IF NOT EXISTS abandoned(
+ run_id TEXT PRIMARY KEY REFERENCES runs(id), reason TEXT NOT NULL, evidence_hash TEXT NOT NULL);
 """
 
 
@@ -103,9 +105,17 @@ class Store:
             raise Rejected("budget integrity failure")
         return plan,order,steps,charged
 
+    def _abandoned(self, c, run_id):
+        row=c.execute("SELECT reason,evidence_hash FROM abandoned WHERE run_id=?", (run_id,)).fetchone()
+        if row and digest([run_id,row[0]])!=row[1]:
+            raise Rejected("abandonment integrity failure")
+        return row is not None
+
     def next(self, run_id, *, approved=False):
         with self.transaction() as c:
             plan,order,steps,charged = self._load(c,run_id)
+            if self._abandoned(c,run_id):
+                raise Rejected("run permanently abandoned")
             if any(a is None for r,a in steps.values()):
                 # Never return the payload again as a new dispatch.
                 raise Rejected("unsettled request; reconcile manually, no redispatch")
@@ -127,6 +137,8 @@ class Store:
     def submit(self, run_id, answer):
         with self.transaction() as c:
             _,_,steps,_ = self._load(c,run_id)
+            if self._abandoned(c,run_id):
+                raise Rejected("run permanently abandoned")
             if not isinstance(answer,dict):
                 raise Rejected("invalid response")
             for key,(request,old) in steps.items():
@@ -149,4 +161,38 @@ class Store:
             pending = [r["request_id"] for r,a in steps.values() if a is None]
             return {"host":plan["host"],"completed":len(done),"total":len(order),
                     "reserved_or_reported":charged,"budget":plan["budget"],
-                    "pending":pending,"outputs":done}
+                    "pending":pending,"outputs":done,"abandoned":self._abandoned(c,run_id)}
+
+    def abandon(self, run_id, reason):
+        """Permanent stop; no rollback of external effects or release of uncertain usage."""
+        if not isinstance(reason,str) or not reason.strip() or len(reason)>512:
+            raise Rejected("bounded abandonment reason required")
+        with self.transaction() as c:
+            self._load(c,run_id)
+            row=c.execute("SELECT reason FROM abandoned WHERE run_id=?", (run_id,)).fetchone()
+            if row:
+                if row[0]!=reason:
+                    raise Rejected("abandonment already recorded")
+                return
+            c.execute("INSERT INTO abandoned VALUES (?,?,?)",(run_id,reason,digest([run_id,reason])))
+
+    def audit(self, run_id):
+        """Metadata-only report; does not disclose task input or output."""
+        with self.transaction() as c:
+            plan,order,steps,charged=self._load(c,run_id)
+            evidence=[]
+            for node in order:
+                key=node["id"]
+                if key not in steps:
+                    evidence.append({"node":key,"state":"waiting"})
+                    continue
+                req,ans=steps[key]
+                evidence.append({"node":key,"state":"pending" if ans is None else "done",
+                                 "request_sha256":digest(req),
+                                 "completion_sha256":None if ans is None else digest([req,ans]),
+                                 "reservation":req["max_tokens"],
+                                 "usage":None if ans is None else ans["usage"]})
+            return {"schema":1,"run_id":run_id,"plan_sha256":digest(plan),
+                    "host":plan["host"],"budget":plan["budget"],"reserved_or_reported":charged,
+                    "abandoned":self._abandoned(c,run_id),"steps":evidence,
+                    "scope":"local integrity and reported accounting; not provider attestation"}

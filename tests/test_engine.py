@@ -141,4 +141,32 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(run(p)["outputs"],run(p,db=self.db,run_id="r",force_durable=True)["outputs"])
 
 
+    def test_abandon_fail_closed(self):
+        s=Store(self.db);s.start("r",plan(resume=True));req=s.next("r")
+        s.abandon("r","operator cannot verify outcome")
+        self.assertTrue(s.status("r")["abandoned"])
+        self.assertEqual(s.status("r")["reserved_or_reported"],3)
+        with self.assertRaises(Rejected):s.next("r")
+        with self.assertRaises(Rejected):s.submit("r",response(req,5,1))
+
+    def test_audit_omits_payload(self):
+        import json
+        p=plan(host="codex",resume=True);p["nodes"][0]["input"]={"private":"confidential-content"}
+        s=Store(self.db);s.start("r",p);req=s.next("r",approved=True)
+        s.submit("r",response(req,"private-output",1))
+        evidence=s.audit("r")
+        self.assertEqual(evidence["steps"][0]["state"],"done")
+        self.assertNotIn("confidential-content",json.dumps(evidence))
+        self.assertNotIn("private-output",json.dumps(evidence))
+
+    def test_restart_from_committed_prefix(self):
+        s=Store(self.db);p=plan([node(),node("B",["A"])],resume=True)
+        s.start("r",p);req=s.next("r");s.submit("r",response(req,5,1))
+        s=Store(self.db);s.start("r",p);next_req=s.next("r")
+        self.assertEqual(next_req["node"],"B")
+        self.assertEqual(next_req["dependencies"],{"A":5})
+        s.submit("r",response(next_req,10,1))
+        self.assertEqual(s.status("r")["outputs"],{"A":5,"B":10})
+
+
 if __name__=="__main__":unittest.main()

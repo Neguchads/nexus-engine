@@ -33,3 +33,5 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 - NAVI integration is intentionally deferred and must remain optional.
 
 See [acceptance gates](docs/ROADMAP.md) and [security](SECURITY.md).
+
+Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence. Permanently stop an ambiguous run with `abandon --reason ... --confirm`; uncertainty remains charged and is never replayed. See handoff documentation.
