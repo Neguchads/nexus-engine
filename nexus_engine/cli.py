@@ -17,13 +17,13 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore"):
+    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore","recover-fixtures"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
         if name!="plan":
             q.add_argument("--db",required=name!="run")
-            if name not in ("verify-db","backup","restore"):
+            if name not in ("verify-db","backup","restore","recover-fixtures"):
                 q.add_argument("--run-id",required=name!="run")
         if name in ("next","ollama-step"):
             q.add_argument("--approve",action="store_true")
@@ -38,8 +38,10 @@ def main():
             q.add_argument("file")
         if name=="artifact":
             q.add_argument("--consumer")
-        if name in ("backup","restore"):
+        if name in ("backup","restore","recover-fixtures"):
             q.add_argument("destination")
+        if name=="recover-fixtures":
+            q.add_argument("--confirm",action="store_true")
         if name=="abandon":
             q.add_argument("--reason",required=True)
             q.add_argument("--confirm",action="store_true")
@@ -51,12 +53,14 @@ def main():
         elif a.command=="run":
             from .engine import run
             result=run(read(a.plan),db=a.db,run_id=a.run_id)
-        elif a.command in ("backup","restore"):
+        elif a.command in ("backup","restore","recover-fixtures"):
             from .recovery import snapshot
-            result=snapshot(a.db,a.destination,seal=a.command=="restore")
+            if a.command=="recover-fixtures" and not a.confirm:
+                raise Rejected("explicit recovery confirmation required")
+            result=snapshot(a.db,a.destination,seal=a.command=="restore",promote=a.command=="recover-fixtures")
         else:
             from .store import Store
-            if a.command=="verify-db" and not Path(a.db).is_file():
+            if a.command!="start" and not Path(a.db).is_file():
                 raise Rejected("database must exist")
             store=Store(a.db)
             if a.command=="start":
@@ -84,7 +88,9 @@ def main():
                 result=store.attach(a.run_id,a.node,a.artifact_name,data)
             elif a.command=="artifact":
                 data,result=store.artifact(a.run_id,a.node,a.artifact_name,consumer=a.consumer)
-                with Path(a.file).open("xb") as f:
+                import os
+                fd=os.open(a.file,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+                with os.fdopen(fd,"wb") as f:
                     f.write(data)
             elif a.command=="verify-db":
                 result=store.verify_all()
