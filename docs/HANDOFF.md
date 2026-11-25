@@ -27,3 +27,11 @@ Future adapter: versioned capabilities, exact model/config identity, scoped perm
 `nexus-engine audit --db state.db --run-id external` provides hashes, reservation and completion states without task payloads. If an outstanding request cannot be reconciled from the original response, `nexus-engine abandon --db state.db --run-id external --reason "outcome unknown" --confirm` permanently stops the run. This does not cancel or roll back the external operation or release its reservation. Never use a new run ID as a workaround for an unknown side effect.
 
 Approval is bound to the exact run, plan, node, inputs, dependency outputs and reservation. An approval hash is not an authentication credential. A trusted human must review the preview before dispatch; the engine rejects mismatched or stale hashes. External providers remain strictly sequential.
+
+## Optional Codex CLI trace import
+
+The Codex CLI documents structured JSONL via codex exec --json and usage in turn.completed (https://developers.openai.com/blog/eval-skills). After reviewing and reserving a Codex request with preview/next, use your own authenticated CLI in an isolated trusted workspace, with read-only sandbox and no secrets in the prompt. Ask Codex to return only JSON with request_id copied from the reserved request and output containing the result. Redirect JSONL stdout to a private UTF-8 trace file. Review the complete trace and successful process exit before importing:
+
+    nexus-engine codex-import trace.jsonl --db state.db --run-id external --confirm
+
+The importer requires exactly one complete successful turn, checks the final agent JSON and request ID, and uses input_tokens + output_tokens reported by the CLI (cached and reasoning counts are not added a second time). It rejects malformed or ambiguous traces, conflicting request IDs, and over-budget completion through Store.submit. Only the normalized result is persisted; raw trace remains in your private file. The importer does not execute Codex, grant account permissions, authenticate a trace, guarantee billing or enforce the provider's tool sandbox. The trace may contain sensitive content. Do not share it publicly. Native execution remains operator-controlled. Other agents retain independent JSON handoffs.

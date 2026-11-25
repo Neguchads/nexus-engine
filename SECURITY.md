@@ -19,3 +19,5 @@ Alpha 5 rejects unrelated database tables and unsupported schema/application ver
 New local files use exclusive creation and owner-only POSIX mode, and databases must be regular files. Fixture-only snapshot promotion requires explicit confirmation and rejects external plans or unsettled reservations. Preview release publication is a separate main-only job after the verification matrix, with a scoped contents-write token and no overwrite. These controls do not certify hostile-host isolation.
 
 Alpha 7 rejects duplicate JSON keys and non-finite constants at input, storage and model-response boundaries. Completion idempotency uses canonical JSON equality, distinguishing booleans from integers. These are local integrity controls, not independent audit sign-off.
+
+The optional Codex trace importer reads a bounded local JSONL file, rejects failed or ambiguous turns and binds the normalized answer to an existing reserved request. It never executes a provider or accesses credentials. CLI logs are operator-provided and not cryptographically attested.
