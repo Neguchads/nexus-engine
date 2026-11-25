@@ -9,3 +9,5 @@ No sandbox or OS process isolation is claimed. External input/output may contain
 Abandonment permanently denies subsequent dispatch and submission; the outstanding reservation remains charged. Metadata-only audit excludes raw payloads but still reveals operational metadata and hashes; treat it as potentially sensitive.
 
 The local Ollama server is trusted and may itself have network access. The adapter is not an offline-inference attestation or hard total-time/token cap. No remote endpoints are accepted. Only use a reviewed local model and explicit approval; model output remains untrusted data.
+
+External dispatch requires a content-bound approval hash, not merely a boolean. It is not a secret, signature or authentication; trusted operator review remains mandatory. Fixture-only parallel batches reserve the whole ready frontier before execution. No automatic replay of a partially completed batch. Plans without workers keep their original fingerprints and single-worker behavior.

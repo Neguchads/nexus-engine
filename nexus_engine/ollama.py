@@ -54,9 +54,15 @@ def execute(request):
         conn.close()
 
 
-def step(store,run_id):
-    # Reservation precedes HTTP. Any error leaves an unresolved request.
-    request=store.next(run_id,approved=True,expected_host="ollama")
+def step(store,run_id,approval_sha256):
+    # Validate the reviewed payload before reservation. Recheck approval atomically at dispatch.
+    preview=store.preview(run_id,expected_host="ollama")
+    if preview is None:
+        return store.status(run_id)
+    if preview["approval_sha256"]!=approval_sha256:
+        raise Rejected("approval hash does not match preview")
+    payload(preview["payload"])
+    request=store.next(run_id,approved=True,approval_sha256=approval_sha256,expected_host="ollama")
     if request is not None:
         store.submit(run_id,execute(request))
     return store.status(run_id)

@@ -36,12 +36,18 @@ def positive(value):
 
 def validate(plan):
     plan = json.loads(encode(plan))
-    if not isinstance(plan, dict) or set(plan) != {"host", "budget", "resume", "nodes"}:
+    required = {"host", "budget", "resume", "nodes"}
+    if not isinstance(plan, dict) or set(plan) not in (required, required | {"workers"}):
         raise Rejected("invalid plan fields")
     if not isinstance(plan["host"], str) or plan["host"] not in HOSTS:
         raise Rejected("unknown host")
     if not positive(plan["budget"]) or type(plan["resume"]) is not bool:
         raise Rejected("invalid budget or resume")
+    workers = plan.get("workers", 1)
+    if type(workers) is not int or not 1 <= workers <= 8:
+        raise Rejected("workers must be between 1 and 8")
+    if workers > 1 and plan["host"] != "fixture":
+        raise Rejected("parallel execution is restricted to deterministic fixtures")
     nodes = plan["nodes"]
     if not isinstance(nodes, list) or not 1 <= len(nodes) <= 64:
         raise Rejected("invalid node count")

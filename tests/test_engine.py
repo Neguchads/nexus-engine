@@ -75,7 +75,7 @@ class EngineTests(unittest.TestCase):
         for host in ("codex","claude","gemini","copilot","ollama"):
             s.start(host,plan(host=host,resume=True))
             with self.assertRaises(Rejected):s.next(host)
-            req=s.next(host,approved=True)
+            req=s.next(host,approved=True,approval_sha256=s.preview(host)["approval_sha256"])
             self.assertEqual(req["host"],host)
             wrong=response(req,5,1);wrong["host"]="fixture"
             with self.assertRaises(Rejected):s.submit(host,wrong)
@@ -153,7 +153,7 @@ class EngineTests(unittest.TestCase):
     def test_audit_omits_payload(self):
         import json
         p=plan(host="codex",resume=True);p["nodes"][0]["input"]={"private":"confidential-content"}
-        s=Store(self.db);s.start("r",p);req=s.next("r",approved=True)
+        s=Store(self.db);s.start("r",p);req=s.next("r",approved=True,approval_sha256=s.preview("r")["approval_sha256"])
         s.submit("r",response(req,"private-output",1))
         evidence=s.audit("r")
         self.assertEqual(evidence["steps"][0]["state"],"done")
@@ -180,6 +180,56 @@ class EngineTests(unittest.TestCase):
         s=Store(self.db)
         self.assertEqual(s.status("r")["reserved_or_reported"],3)
         with self.assertRaisesRegex(Rejected,"unsettled"):s.next("r")
+
+
+    def test_approval_requires_matching_review(self):
+        s=Store(self.db);s.start("r",plan(host="codex",resume=True))
+        review=s.preview("r")
+        self.assertEqual(s.status("r")["pending"],[])
+        for token in (None,"0"*64):
+            with self.assertRaises(Rejected):s.next("r",approved=True,approval_sha256=token)
+        req=s.next("r",approved=True,approval_sha256=review["approval_sha256"])
+        self.assertEqual({k:v for k,v in req.items() if k!="request_id"},review["payload"])
+
+    def test_stale_approval_cannot_dispatch_next_node(self):
+        s=Store(self.db);s.start("r",plan([node(),node("B",["A"])],host="codex"))
+        old=s.preview("r")["approval_sha256"]
+        req=s.next("r",approved=True,approval_sha256=old)
+        s.submit("r",response(req,5,1))
+        with self.assertRaises(Rejected):s.next("r",approved=True,approval_sha256=old)
+        self.assertEqual(s.status("r")["pending"],[])
+
+    def test_parallel_diamond(self):
+        p=plan([node("D",["B","C"],[1]),node("B",["A"],[1]),node("C",["A"],[2]),node()])
+        p["workers"]=3
+        self.assertEqual(run(p,db=self.db,run_id="r")["outputs"],{"A":5,"B":6,"C":7,"D":14})
+
+    def test_parallel_frontier_and_ambiguous_resume(self):
+        p=plan([node("A"),node("B"),node("C",["A","B"])],resume=True)
+        p["workers"]=2
+        s=Store(self.db);s.start("r",p)
+        batch=s.reserve_batch("r")
+        self.assertEqual([r["node"] for r in batch],["A","B"])
+        self.assertEqual(s.status("r")["reserved_or_reported"],6)
+        s.submit("r",response(batch[0],5,1))
+        with self.assertRaisesRegex(Rejected,"unsettled"):Store(self.db).reserve_batch("r")
+        s.submit("r",response(batch[1],5,1))
+        self.assertEqual([r["node"] for r in s.reserve_batch("r")],["C"])
+
+    def test_parallel_rejects_external_host(self):
+        p=plan(host="ollama");p["workers"]=2
+        with self.assertRaises(Rejected):route(p)
+
+    def test_parallel_racing_reservations(self):
+        p=plan([node("A"),node("B"),node("C")],resume=True);p["workers"]=2
+        s=Store(self.db);s.start("r",p)
+        def reserve():
+            try:return Store(self.db).reserve_batch("r")
+            except Rejected:return []
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            batches=list(ex.map(lambda _:reserve(),range(8)))
+        self.assertEqual(sum(map(len,batches)),2)
+        self.assertEqual(s.status("r")["reserved_or_reported"],6)
 
 
 if __name__=="__main__":unittest.main()

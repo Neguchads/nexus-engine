@@ -17,7 +17,7 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","next","submit","status","audit","abandon","ollama-step"):
+    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
@@ -26,6 +26,7 @@ def main():
             q.add_argument("--run-id",required=name!="run")
         if name in ("next","ollama-step"):
             q.add_argument("--approve",action="store_true")
+            q.add_argument("--approval-sha256")
         if name=="submit":
             q.add_argument("answer")
         if name=="abandon":
@@ -45,8 +46,10 @@ def main():
             if a.command=="start":
                 store.start(a.run_id,read(a.plan))
                 result=store.status(a.run_id)
+            elif a.command=="preview":
+                result=store.preview(a.run_id)
             elif a.command=="next":
-                result=store.next(a.run_id,approved=a.approve)
+                result=store.next(a.run_id,approved=a.approve,approval_sha256=a.approval_sha256)
             elif a.command=="submit":
                 store.submit(a.run_id,read(a.answer))
                 result=store.status(a.run_id)
@@ -54,7 +57,7 @@ def main():
                 if not a.approve:
                     raise Rejected("explicit approval required for local HTTP dispatch")
                 from .ollama import step
-                result=step(store,a.run_id)
+                result=step(store,a.run_id,a.approval_sha256)
             elif a.command=="audit":
                 result=store.audit(a.run_id)
             elif a.command=="abandon":
