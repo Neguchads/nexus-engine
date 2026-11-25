@@ -4,6 +4,8 @@ Local owner-controlled storage only. No sandbox or hostile database protection.
 One external request or an explicitly bounded deterministic batch; no automatic retries.
 """
 import json
+import os
+import stat
 import secrets
 import sqlite3
 from contextlib import contextmanager
@@ -34,6 +36,14 @@ class Store:
         path = Path(path)
         if path.is_symlink() or not path.parent.is_dir():
             raise Rejected("use a private existing database parent")
+        if not path.exists():
+            try:
+                fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+                os.close(fd)
+            except FileExistsError:
+                pass
+        if path.is_symlink() or not stat.S_ISREG(path.stat().st_mode):
+            raise Rejected("database must be a regular local file")
         self.path = path
         with self.transaction() as conn:
             # Mark and validate schema versions; older alpha DBs have version zero.

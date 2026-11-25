@@ -12,3 +12,5 @@ All operations are for a trusted single owner, in private local directories. No 
 Old plans without context retain their original fingerprints. Alpha 4 adds tables on opening older databases. Upgrade a private copy first; a sealed backup is evidence, not a runnable rollback. Do not open an alpha 4 database with an older binary for execution.
 
 Alpha 5 assigns SQLite application_id 1313167445 and user_version 1 when opening a recognized legacy or new database. Future versions and unrelated tables are rejected. Back up privately before upgrade; older binaries do not enforce new-version safeguards.
+
+Alpha 6 supports `nexus-engine recover-fixtures recovered.db --db copy.db --confirm`. Only a verified sealed snapshot with exclusively fixture plans and no outstanding reservation can be promoted into a new database. The source is unchanged. Never promote external-provider history; external snapshots are inspection-only. New databases and extracted files are created with owner-only mode on POSIX; existing database ACLs and Windows directory permissions remain the operator's responsibility.

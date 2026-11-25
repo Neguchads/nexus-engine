@@ -37,3 +37,5 @@ Alpha 3 adds bounded fixture-only parallel frontiers and content-bound external 
 Alpha 4 candidate adds strict JSON merge, logical dependency-scoped immutable file attachments, explicit context projection, integrity scans and sealed backup/restore for inspection. Full AAF equivalence, authenticated access, writable recovery and real token/quality gains are not claimed.
 
 Alpha 5 adds database-format checks, real-inference benchmark tooling and a pinned workflow. Live model results are an experimental gate, not full repository-engineering acceptance.
+
+Alpha 6 candidate adds deterministic-only operational recovery and a gated versioned preview distribution. External replay remains prohibited. Full engineering benchmark, independent audit, production-grade provider validation and NAVI adapter are still separate acceptance gates.
