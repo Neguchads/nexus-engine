@@ -1,7 +1,7 @@
 """Durable SQLite queue, reservation journal and content-bound checkpoints.
 
 Local owner-controlled storage only. No sandbox or hostile database protection.
-One outstanding request per run; no automatic retries.
+One external request or an explicitly bounded deterministic batch; no automatic retries.
 """
 import json
 import secrets
@@ -98,8 +98,8 @@ class Store:
             if request["dependencies"] != {d:steps[d][1]["output"] for d in deps}:
                 raise Rejected("checkpoint dependency mismatch")
             pending += answer is None
-        if pending > 1:
-            raise Rejected("multiple pending reservations")
+        if pending > plan.get("workers", 1):
+            raise Rejected("pending reservations exceed worker limit")
         charged = sum(r["max_tokens"] if a is None else a["usage"] for r,a in steps.values())
         if charged > plan["budget"]:
             raise Rejected("budget integrity failure")
@@ -111,30 +111,60 @@ class Store:
             raise Rejected("abandonment integrity failure")
         return row is not None
 
-    def next(self, run_id, *, approved=False, expected_host=None):
+    def _ready(self, c, run_id, expected_host=None):
+        plan,order,steps,charged = self._load(c,run_id)
+        if self._abandoned(c,run_id):
+            raise Rejected("run permanently abandoned")
+        if expected_host is not None and plan["host"] != expected_host:
+            raise Rejected("selected host mismatch")
+        if any(a is None for r,a in steps.values()):
+            raise Rejected("unsettled request; reconcile manually, no redispatch")
+        ready = [n for n in order if n["id"] not in steps and
+                 all(d in steps and steps[d][1] is not None for d in n["depends_on"])]
+        return plan,steps,charged,ready
+
+    def _draft(self, plan, steps, run_id, node):
+        return {"run_id":run_id,"node":node["id"],"plan_hash":digest(plan),
+                "host":plan["host"],"input":node["input"],"max_tokens":node["max_tokens"],
+                "dependencies":{d:steps[d][1]["output"] for d in node["depends_on"]}}
+
+    def _reserve(self, c, draft):
+        request = {**draft,"request_id":secrets.token_hex(24)}
+        raw = encode(request)
+        c.execute("INSERT INTO steps VALUES (?,?,?,?,NULL,NULL)",
+                  (draft["run_id"],draft["node"],raw,digest(request)))
+        return request
+
+    def preview(self, run_id, *, expected_host=None):
+        """Review the exact next payload without dispatching or reserving it."""
         with self.transaction() as c:
-            plan,order,steps,charged = self._load(c,run_id)
-            if self._abandoned(c,run_id):
-                raise Rejected("run permanently abandoned")
-            if expected_host is not None and plan["host"] != expected_host:
-                raise Rejected("selected host mismatch")
-            if any(a is None for r,a in steps.values()):
-                # Never return the payload again as a new dispatch.
-                raise Rejected("unsettled request; reconcile manually, no redispatch")
-            if len(steps) == len(order):
+            plan,steps,_,ready=self._ready(c,run_id,expected_host)
+            if not ready:
                 return None
-            if plan["host"] != "fixture" and not approved:
-                raise Rejected("explicit approval required for external handoff")
-            node = next(n for n in order if n["id"] not in steps)
-            if charged + node["max_tokens"] > plan["budget"]:
+            draft=self._draft(plan,steps,run_id,ready[0])
+            return {"payload":draft,"approval_sha256":digest(draft)}
+
+    def next(self, run_id, *, approved=False, approval_sha256=None, expected_host=None):
+        with self.transaction() as c:
+            plan,steps,charged,ready=self._ready(c,run_id,expected_host)
+            if not ready:
+                return None
+            draft=self._draft(plan,steps,run_id,ready[0])
+            if plan["host"] != "fixture" and (
+                    not approved or approval_sha256 != digest(draft)):
+                raise Rejected("explicit approval matching the preview hash required")
+            if charged + draft["max_tokens"] > plan["budget"]:
                 raise Rejected("reservation exceeds budget")
-            request = {"request_id":secrets.token_hex(24),"run_id":run_id,
-                       "node":node["id"],"plan_hash":digest(plan),"host":plan["host"],
-                       "input":node["input"],"max_tokens":node["max_tokens"],
-                       "dependencies":{d:steps[d][1]["output"] for d in node["depends_on"]}}
-            raw = encode(request)
-            c.execute("INSERT INTO steps VALUES (?,?,?,?,NULL,NULL)",(run_id,node["id"],raw,digest(request)))
-            return request
+            return self._reserve(c,draft)
+
+    def reserve_batch(self, run_id):
+        """Atomically reserve a ready frontier for deterministic fixtures only."""
+        with self.transaction() as c:
+            plan,steps,charged,ready=self._ready(c,run_id,"fixture")
+            selected=ready[:plan.get("workers",1)]
+            if charged+sum(n["max_tokens"] for n in selected)>plan["budget"]:
+                raise Rejected("batch reservation exceeds budget")
+            return [self._reserve(c,self._draft(plan,steps,run_id,n)) for n in selected]
 
     def submit(self, run_id, answer):
         with self.transaction() as c:

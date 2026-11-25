@@ -1,8 +1,8 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a2.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a3.
 
-Nexus provides lightweight deterministic execution and a durable, sequential DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
+Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
 ## Quick start
 
@@ -26,9 +26,9 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 
 ## Project status
 
-- Implemented candidate: adaptive fixture path, sequential durable DAG, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
+- Implemented candidate: adaptive fixture path, durable DAG with optional bounded deterministic parallelism, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
 - CI targets Windows, Linux and macOS. Check actual results before claiming OS support.
-- No untrusted code sandbox, authenticated cloud integrations, verified token billing, parallel DAG workers, real AI benchmark or production certification.
+- No untrusted code sandbox, authenticated cloud integrations, verified token billing, real AI benchmark or production certification.
 - The private AAF implementation is not distributed. Useful architectural patterns are reimplemented here; legacy parity remains to be measured.
 - NAVI integration is intentionally deferred and must remain optional.
 
@@ -39,3 +39,5 @@ Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence.
 Real-provider evaluation has a paired-record validator: `python -m benchmarks.evaluate records.json`. See [measurement protocol](docs/BENCHMARK.md). It consumes operator-supplied data; it does not call a model or claim measured token savings.
 
 See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Real inference is not yet verified.
+
+Optional `workers` in a fixture plan (1–8) enables parallel execution of ready DAG nodes with atomic batch reservations. External agents always remain sequential. Alpha 3 also requires an explicit preview hash for external dispatch; existing stored plan fingerprints are preserved.

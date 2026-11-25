@@ -18,6 +18,14 @@ def run(plan, *, db=None, run_id=None, force_durable=False):
     from .store import Store
     store=Store(db)
     store.start(run_id,plan)
-    while (request:=store.next(run_id)) is not None:
-        store.submit(run_id,execute(request))
+    if plan.get("workers",1)==1:
+        while (request:=store.next(run_id)) is not None:
+            store.submit(run_id,execute(request))
+    else:
+        from concurrent.futures import ThreadPoolExecutor
+        # Only pure fixtures. A failed/ambiguous batch remains blocked, never replayed.
+        with ThreadPoolExecutor(max_workers=plan["workers"]) as pool:
+            while (batch:=store.reserve_batch(run_id)):
+                for answer in pool.map(execute,batch):
+                    store.submit(run_id,answer)
     return {"mode":"durable",**store.status(run_id)}

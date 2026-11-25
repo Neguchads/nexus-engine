@@ -30,7 +30,7 @@ jobs:
         run: |
           repo="$PWD"
           cd "$RUNNER_TEMP"
-          python -I -c 'from nexus_engine import __version__; assert __version__ == "0.1.0a2"'
+          python -I -c 'from nexus_engine import __version__; assert __version__ == "0.1.0a3"'
           nexus-engine run "$repo/examples/simple.json"
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci

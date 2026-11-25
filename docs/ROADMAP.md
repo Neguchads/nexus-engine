@@ -31,3 +31,5 @@ The independent engine now exposes permanent abandonment and metadata-only evide
 A paired-record evaluator is implemented in benchmarks/evaluate.py. No real AI measurements were supplied. The evaluator checks matched identities and minimum sample size, not independent authenticity or statistical significance. See docs/BENCHMARK.md.
 
 An experimental Ollama loopback transport is now implemented with mocked protocol tests. Real model inference and cross-provider native adapters remain acceptance gates; no cloud account is required for Core or the local transport.
+
+Alpha 3 adds bounded fixture-only parallel frontiers and content-bound external approval. Real-provider parallelism remains out of scope. AAF file-artifact permissions, merge semantics, independent security review and stress remain pending.

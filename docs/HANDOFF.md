@@ -4,7 +4,9 @@ The operator selects exactly one host in the plan, with a bounded per-node reser
 
 ```sh
 nexus-engine start examples/external.json --db state.db --run-id external
-nexus-engine next --db state.db --run-id external --approve
+nexus-engine preview --db state.db --run-id external
+# Review the payload and copy its approval_sha256:
+nexus-engine next --db state.db --run-id external --approve --approval-sha256 REVIEWED_HASH
 ```
 
 Manually deliver the displayed JSON to the chosen provider only. Ask it for JSON with exactly these fields: request_id (copy from request), host (copy from request), output (JSON result), usage (integer total reported tokens, not synthetic). If reliable usage is unavailable, do not invent a number; the reservation remains unresolved. The operator verifies result, identity and usage outside Nexus.
@@ -23,3 +25,5 @@ Future adapter: versioned capabilities, exact model/config identity, scoped perm
 ## Reconciliation
 
 `nexus-engine audit --db state.db --run-id external` provides hashes, reservation and completion states without task payloads. If an outstanding request cannot be reconciled from the original response, `nexus-engine abandon --db state.db --run-id external --reason "outcome unknown" --confirm` permanently stops the run. This does not cancel or roll back the external operation or release its reservation. Never use a new run ID as a workaround for an unknown side effect.
+
+Approval is bound to the exact run, plan, node, inputs, dependency outputs and reservation. An approval hash is not an authentication credential. A trusted human must review the preview before dispatch; the engine rejects mismatched or stale hashes. External providers remain strictly sequential.
