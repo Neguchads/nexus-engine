@@ -1,0 +1,1 @@
+{"host":"codex","budget":1000,"resume":true,"nodes":[{"id":"A","depends_on":[],"input":{"task":"Return JSON with a summary and supporting notes."},"max_tokens":500},{"id":"B","depends_on":["A"],"input":{"task":"Review the summary."},"max_tokens":500,"context":{"select":{"A":["summary"]},"max_bytes":4096}}]}

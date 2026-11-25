@@ -9,6 +9,7 @@ import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
 from .contracts import Rejected, digest, encode, identifier, validate, validate_response
+from .context import project
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs(
@@ -19,6 +20,12 @@ CREATE TABLE IF NOT EXISTS steps(
  answer TEXT, answer_hash TEXT, PRIMARY KEY(run_id,node));
 CREATE TABLE IF NOT EXISTS abandoned(
  run_id TEXT PRIMARY KEY REFERENCES runs(id), reason TEXT NOT NULL, evidence_hash TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS artifacts(
+ run_id TEXT NOT NULL, node TEXT NOT NULL, name TEXT NOT NULL,
+ content BLOB NOT NULL, sha TEXT NOT NULL, provenance TEXT NOT NULL,
+ PRIMARY KEY(run_id,node,name),
+ FOREIGN KEY(run_id,node) REFERENCES steps(run_id,node));
+CREATE TABLE IF NOT EXISTS recovery_hold(id INTEGER PRIMARY KEY CHECK(id=1));
 """
 
 
@@ -38,6 +45,7 @@ class Store:
         conn = sqlite3.connect(self.path, isolation_level=None, timeout=10)
         try:
             conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("PRAGMA trusted_schema=OFF")
             conn.execute("BEGIN IMMEDIATE")
             yield conn
             conn.commit()
@@ -47,11 +55,16 @@ class Store:
         finally:
             conn.close()
 
+    def _writable(self,c):
+        if c.execute("SELECT 1 FROM recovery_hold WHERE id=1").fetchone():
+            raise Rejected("recovered snapshot is sealed for inspection")
+
     def start(self, run_id, plan):
         if not identifier(run_id):
             raise Rejected("invalid run ID")
         plan, _ = validate(plan)
         with self.transaction() as c:
+            self._writable(c)
             row = c.execute("SELECT plan,fingerprint FROM runs WHERE id=?", (run_id,)).fetchone()
             if row is not None:
                 if row != (encode(plan), digest(plan)):
@@ -95,7 +108,7 @@ class Store:
             deps = known[key]["depends_on"]
             if any(d not in steps or steps[d][1] is None for d in deps):
                 raise Rejected("checkpoint dependency failure")
-            if request["dependencies"] != {d:steps[d][1]["output"] for d in deps}:
+            if request["dependencies"] != project(known[key],{d:steps[d][1]["output"] for d in deps}):
                 raise Rejected("checkpoint dependency mismatch")
             pending += answer is None
         if pending > plan.get("workers", 1):
@@ -126,9 +139,10 @@ class Store:
     def _draft(self, plan, steps, run_id, node):
         return {"run_id":run_id,"node":node["id"],"plan_hash":digest(plan),
                 "host":plan["host"],"input":node["input"],"max_tokens":node["max_tokens"],
-                "dependencies":{d:steps[d][1]["output"] for d in node["depends_on"]}}
+                "dependencies":project(node,{d:steps[d][1]["output"] for d in node["depends_on"]})}
 
     def _reserve(self, c, draft):
+        self._writable(c)
         request = {**draft,"request_id":secrets.token_hex(24)}
         raw = encode(request)
         c.execute("INSERT INTO steps VALUES (?,?,?,?,NULL,NULL)",
@@ -168,6 +182,7 @@ class Store:
 
     def submit(self, run_id, answer):
         with self.transaction() as c:
+            self._writable(c)
             _,_,steps,_ = self._load(c,run_id)
             if self._abandoned(c,run_id):
                 raise Rejected("run permanently abandoned")
@@ -200,6 +215,7 @@ class Store:
         if not isinstance(reason,str) or not reason.strip() or len(reason)>512:
             raise Rejected("bounded abandonment reason required")
         with self.transaction() as c:
+            self._writable(c)
             self._load(c,run_id)
             row=c.execute("SELECT reason FROM abandoned WHERE run_id=?", (run_id,)).fetchone()
             if row:
@@ -228,3 +244,89 @@ class Store:
                     "host":plan["host"],"budget":plan["budget"],"reserved_or_reported":charged,
                     "abandoned":self._abandoned(c,run_id),"steps":evidence,
                     "scope":"local integrity and reported accounting; not provider attestation"}
+
+    def context_report(self,run_id):
+        from .context import report
+        with self.transaction() as c:
+            _,order,steps,_=self._load(c,run_id)
+            rows=[]
+            for n in order:
+                if all(d in steps and steps[d][1] is not None for d in n["depends_on"]):
+                    rows.append({"node":n["id"],**report(n,{d:steps[d][1]["output"] for d in n["depends_on"]})})
+            return rows
+
+    def merge(self,run_id,nodes):
+        from .merge import merge_objects
+        if not isinstance(nodes,list) or not nodes or any(not identifier(n) for n in nodes) or len(set(nodes))!=len(nodes):
+            raise Rejected("unique explicit merge nodes required")
+        with self.transaction() as c:
+            _,_,steps,_=self._load(c,run_id)
+            if any(n not in steps or steps[n][1] is None for n in nodes):
+                raise Rejected("merge requires completed nodes in the same run")
+            result=merge_objects({n:steps[n][1]["output"] for n in nodes})
+            return {"run_id":run_id,"sources":{n:digest([steps[n][0],steps[n][1]]) for n in nodes},
+                    "output":result,"sha256":digest(result)}
+
+    def _artifact_record(self,c,run_id,node,name,steps):
+        from hashlib import sha256
+        row=c.execute("SELECT content,sha,provenance FROM artifacts WHERE run_id=? AND node=? AND name=?",
+                      (run_id,node,name)).fetchone()
+        if row is None:
+            raise Rejected("artifact not found")
+        data,sha,provenance=row
+        if (node not in steps or steps[node][1] is None or not isinstance(data,bytes)
+                or len(data)>1048576 or sha256(data).hexdigest()!=sha
+                or provenance!=digest([run_id,node,name,sha,digest([steps[node][0],steps[node][1]])])):
+            raise Rejected("artifact integrity failure")
+        return data,{"run_id":run_id,"node":node,"name":name,"sha256":sha,
+                     "bytes":len(data),"provenance_sha256":provenance}
+
+    def attach(self,run_id,node,name,data):
+        from hashlib import sha256
+        if not identifier(node) or not identifier(name) or not isinstance(data,bytes) or len(data)>1048576:
+            raise Rejected("invalid artifact name or payload")
+        with self.transaction() as c:
+            self._writable(c)
+            _,_,steps,_=self._load(c,run_id)
+            if self._abandoned(c,run_id) or node not in steps or steps[node][1] is None:
+                raise Rejected("artifact requires completed non-abandoned node")
+            sha=sha256(data).hexdigest()
+            provenance=digest([run_id,node,name,sha,digest([steps[node][0],steps[node][1]])])
+            existing=c.execute("SELECT 1 FROM artifacts WHERE run_id=? AND node=? AND name=?",
+                               (run_id,node,name)).fetchone()
+            if existing:
+                old,meta=self._artifact_record(c,run_id,node,name,steps)
+                if old!=data:
+                    raise Rejected("immutable artifact conflict")
+                return meta
+            if c.execute("SELECT COUNT(*) FROM artifacts WHERE run_id=?",(run_id,)).fetchone()[0]>=32:
+                raise Rejected("artifact count limit per run")
+            c.execute("INSERT INTO artifacts VALUES (?,?,?,?,?,?)",(run_id,node,name,data,sha,provenance))
+            return self._artifact_record(c,run_id,node,name,steps)[1]
+
+    def artifact(self,run_id,node,name,*,consumer=None):
+        """Owner reads explicitly; logical consumer reads only direct predecessors."""
+        if not identifier(node) or not identifier(name):
+            raise Rejected("invalid artifact identifier")
+        with self.transaction() as c:
+            _,order,steps,_=self._load(c,run_id)
+            if consumer is not None:
+                target=next((n for n in order if n["id"]==consumer),None)
+                if target is None or node not in target["depends_on"]:
+                    raise Rejected("artifact outside consumer dependency scope")
+            return self._artifact_record(c,run_id,node,name,steps)
+
+    def verify_all(self):
+        with self.transaction() as c:
+            if c.execute("PRAGMA quick_check").fetchall()!=[("ok",)] or c.execute("PRAGMA foreign_key_check").fetchall():
+                raise Rejected("database integrity failure")
+            ids=[r[0] for r in c.execute("SELECT id FROM runs ORDER BY id")]
+            count=0
+            for run_id in ids:
+                _,_,steps,_=self._load(c,run_id)
+                self._abandoned(c,run_id)
+                for node,name in c.execute("SELECT node,name FROM artifacts WHERE run_id=?",(run_id,)):
+                    self._artifact_record(c,run_id,node,name,steps)
+                    count+=1
+            return {"runs":len(ids),"artifacts":count,
+                    "sealed":bool(c.execute("SELECT 1 FROM recovery_hold WHERE id=1").fetchone())}

@@ -17,18 +17,29 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step"):
+    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
         if name!="plan":
             q.add_argument("--db",required=name!="run")
-            q.add_argument("--run-id",required=name!="run")
+            if name not in ("verify-db","backup","restore"):
+                q.add_argument("--run-id",required=name!="run")
         if name in ("next","ollama-step"):
             q.add_argument("--approve",action="store_true")
             q.add_argument("--approval-sha256")
         if name=="submit":
             q.add_argument("answer")
+        if name=="merge":
+            q.add_argument("nodes",nargs="+")
+        if name in ("attach","artifact"):
+            q.add_argument("node")
+            q.add_argument("artifact_name")
+            q.add_argument("file")
+        if name=="artifact":
+            q.add_argument("--consumer")
+        if name in ("backup","restore"):
+            q.add_argument("destination")
         if name=="abandon":
             q.add_argument("--reason",required=True)
             q.add_argument("--confirm",action="store_true")
@@ -40,8 +51,13 @@ def main():
         elif a.command=="run":
             from .engine import run
             result=run(read(a.plan),db=a.db,run_id=a.run_id)
+        elif a.command in ("backup","restore"):
+            from .recovery import snapshot
+            result=snapshot(a.db,a.destination,seal=a.command=="restore")
         else:
             from .store import Store
+            if a.command=="verify-db" and not Path(a.db).is_file():
+                raise Rejected("database must exist")
             store=Store(a.db)
             if a.command=="start":
                 store.start(a.run_id,read(a.plan))
@@ -58,6 +74,20 @@ def main():
                     raise Rejected("explicit approval required for local HTTP dispatch")
                 from .ollama import step
                 result=step(store,a.run_id,a.approval_sha256)
+            elif a.command=="context":
+                result=store.context_report(a.run_id)
+            elif a.command=="merge":
+                result=store.merge(a.run_id,a.nodes)
+            elif a.command=="attach":
+                with Path(a.file).open("rb") as f:
+                    data=f.read(1048577)
+                result=store.attach(a.run_id,a.node,a.artifact_name,data)
+            elif a.command=="artifact":
+                data,result=store.artifact(a.run_id,a.node,a.artifact_name,consumer=a.consumer)
+                with Path(a.file).open("xb") as f:
+                    f.write(data)
+            elif a.command=="verify-db":
+                result=store.verify_all()
             elif a.command=="audit":
                 result=store.audit(a.run_id)
             elif a.command=="abandon":

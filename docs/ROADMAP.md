@@ -33,3 +33,5 @@ A paired-record evaluator is implemented in benchmarks/evaluate.py. No real AI m
 An experimental Ollama loopback transport is now implemented with mocked protocol tests. Real model inference and cross-provider native adapters remain acceptance gates; no cloud account is required for Core or the local transport.
 
 Alpha 3 adds bounded fixture-only parallel frontiers and content-bound external approval. Real-provider parallelism remains out of scope. AAF file-artifact permissions, merge semantics, independent security review and stress remain pending.
+
+Alpha 4 candidate adds strict JSON merge, logical dependency-scoped immutable file attachments, explicit context projection, integrity scans and sealed backup/restore for inspection. Full AAF equivalence, authenticated access, writable recovery and real token/quality gains are not claimed.
