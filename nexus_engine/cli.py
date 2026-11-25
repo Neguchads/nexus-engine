@@ -17,7 +17,7 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore","recover-fixtures"):
+    for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore","recover-fixtures","codex-import"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
@@ -30,6 +30,9 @@ def main():
             q.add_argument("--approval-sha256")
         if name=="submit":
             q.add_argument("answer")
+        if name=="codex-import":
+            q.add_argument("trace")
+            q.add_argument("--confirm",action="store_true")
         if name=="merge":
             q.add_argument("nodes",nargs="+")
         if name in ("attach","artifact"):
@@ -73,6 +76,13 @@ def main():
             elif a.command=="submit":
                 store.submit(a.run_id,read(a.answer))
                 result=store.status(a.run_id)
+            elif a.command=="codex-import":
+                if not a.confirm:
+                    raise Rejected("reviewed trace import requires --confirm")
+                from .codex_trace import read_trace
+                answer,evidence=read_trace(a.trace)
+                store.submit(a.run_id,answer)
+                result={"trace":evidence,"audit":store.audit(a.run_id)}
             elif a.command=="ollama-step":
                 if not a.approve:
                     raise Rejected("explicit approval required for local HTTP dispatch")
