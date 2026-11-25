@@ -1,6 +1,6 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a7.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a8.
 
 Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
