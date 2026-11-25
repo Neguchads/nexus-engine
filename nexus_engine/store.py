@@ -1,0 +1,152 @@
+"""Durable SQLite queue, reservation journal and content-bound checkpoints.
+
+Local owner-controlled storage only. No sandbox or hostile database protection.
+One outstanding request per run; no automatic retries.
+"""
+import json
+import secrets
+import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
+from .contracts import Rejected, digest, encode, identifier, validate, validate_response
+
+SCHEMA = """
+CREATE TABLE IF NOT EXISTS runs(
+ id TEXT PRIMARY KEY, plan TEXT NOT NULL, fingerprint TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS steps(
+ run_id TEXT NOT NULL REFERENCES runs(id), node TEXT NOT NULL,
+ request TEXT NOT NULL, request_hash TEXT NOT NULL,
+ answer TEXT, answer_hash TEXT, PRIMARY KEY(run_id,node));
+"""
+
+
+class Store:
+    def __init__(self, path):
+        path = Path(path)
+        if path.is_symlink() or not path.parent.is_dir():
+            raise Rejected("use a private existing database parent")
+        self.path = path
+        with self.transaction() as conn:
+            for statement in SCHEMA.split(";"):
+                if statement.strip():
+                    conn.execute(statement)
+
+    @contextmanager
+    def transaction(self):
+        conn = sqlite3.connect(self.path, isolation_level=None, timeout=10)
+        try:
+            conn.execute("PRAGMA foreign_keys=ON")
+            conn.execute("BEGIN IMMEDIATE")
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    def start(self, run_id, plan):
+        if not identifier(run_id):
+            raise Rejected("invalid run ID")
+        plan, _ = validate(plan)
+        with self.transaction() as c:
+            row = c.execute("SELECT plan,fingerprint FROM runs WHERE id=?", (run_id,)).fetchone()
+            if row is not None:
+                if row != (encode(plan), digest(plan)):
+                    raise Rejected("run identity conflict")
+                if not plan["resume"]:
+                    raise Rejected("run exists and resume is not enabled")
+                return
+            c.execute("INSERT INTO runs VALUES (?,?,?)", (run_id,encode(plan),digest(plan)))
+
+    def _load(self, c, run_id):
+        row = c.execute("SELECT plan,fingerprint FROM runs WHERE id=?", (run_id,)).fetchone()
+        if row is None:
+            raise Rejected("unknown run")
+        plan, order = validate(json.loads(row[0]))
+        if digest(plan) != row[1]:
+            raise Rejected("plan integrity failure")
+        known = {n["id"]:n for n in order}
+        steps = {}
+        for key, req, rh, ans, ah in c.execute(
+                "SELECT node,request,request_hash,answer,answer_hash FROM steps WHERE run_id=?", (run_id,)):
+            request = json.loads(req)
+            if key not in known or digest(request) != rh:
+                raise Rejected("request integrity failure")
+            node = known[key]
+            if (request["run_id"] != run_id or request["node"] != key
+                    or request["plan_hash"] != row[1] or request["host"] != plan["host"]
+                    or request["max_tokens"] != node["max_tokens"] or request["input"] != node["input"]):
+                raise Rejected("request does not match plan")
+            if ans is None:
+                if ah is not None:
+                    raise Rejected("invalid pending checkpoint")
+                answer = None
+            else:
+                answer = validate_response(request,json.loads(ans))
+                if digest([request,answer]) != ah:
+                    raise Rejected("checkpoint integrity failure")
+            steps[key] = (request,answer)
+        # Validate every completed/pending node against its predecessor outputs.
+        pending = 0
+        for key,(request,answer) in steps.items():
+            deps = known[key]["depends_on"]
+            if any(d not in steps or steps[d][1] is None for d in deps):
+                raise Rejected("checkpoint dependency failure")
+            if request["dependencies"] != {d:steps[d][1]["output"] for d in deps}:
+                raise Rejected("checkpoint dependency mismatch")
+            pending += answer is None
+        if pending > 1:
+            raise Rejected("multiple pending reservations")
+        charged = sum(r["max_tokens"] if a is None else a["usage"] for r,a in steps.values())
+        if charged > plan["budget"]:
+            raise Rejected("budget integrity failure")
+        return plan,order,steps,charged
+
+    def next(self, run_id, *, approved=False):
+        with self.transaction() as c:
+            plan,order,steps,charged = self._load(c,run_id)
+            if any(a is None for r,a in steps.values()):
+                # Never return the payload again as a new dispatch.
+                raise Rejected("unsettled request; reconcile manually, no redispatch")
+            if len(steps) == len(order):
+                return None
+            if plan["host"] != "fixture" and not approved:
+                raise Rejected("explicit approval required for external handoff")
+            node = next(n for n in order if n["id"] not in steps)
+            if charged + node["max_tokens"] > plan["budget"]:
+                raise Rejected("reservation exceeds budget")
+            request = {"request_id":secrets.token_hex(24),"run_id":run_id,
+                       "node":node["id"],"plan_hash":digest(plan),"host":plan["host"],
+                       "input":node["input"],"max_tokens":node["max_tokens"],
+                       "dependencies":{d:steps[d][1]["output"] for d in node["depends_on"]}}
+            raw = encode(request)
+            c.execute("INSERT INTO steps VALUES (?,?,?,?,NULL,NULL)",(run_id,node["id"],raw,digest(request)))
+            return request
+
+    def submit(self, run_id, answer):
+        with self.transaction() as c:
+            _,_,steps,_ = self._load(c,run_id)
+            if not isinstance(answer,dict):
+                raise Rejected("invalid response")
+            for key,(request,old) in steps.items():
+                if request["request_id"] != answer.get("request_id"):
+                    continue
+                answer = validate_response(request,answer)
+                if old is not None:
+                    if old != answer:
+                        raise Rejected("conflicting completion")
+                    return
+                c.execute("UPDATE steps SET answer=?,answer_hash=? WHERE run_id=? AND node=?",
+                          (encode(answer),digest([request,answer]),run_id,key))
+                return
+            raise Rejected("unknown request ID")
+
+    def status(self, run_id):
+        with self.transaction() as c:
+            plan,order,steps,charged = self._load(c,run_id)
+            done = {k:a["output"] for k,(r,a) in steps.items() if a is not None}
+            pending = [r["request_id"] for r,a in steps.values() if a is None]
+            return {"host":plan["host"],"completed":len(done),"total":len(order),
+                    "reserved_or_reported":charged,"budget":plan["budget"],
+                    "pending":pending,"outputs":done}

@@ -1,0 +1,1 @@
+{"host":"fixture","budget":6,"resume":true,"nodes":[{"id":"A","depends_on":[],"input":{"values":[2,3]},"max_tokens":3},{"id":"B","depends_on":["A"],"input":{"values":[7]},"max_tokens":3}]}
