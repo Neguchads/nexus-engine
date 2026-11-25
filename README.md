@@ -38,7 +38,7 @@ Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence.
 
 Real-provider evaluation has a paired-record validator: `python -m benchmarks.evaluate records.json`. See [measurement protocol](docs/BENCHMARK.md). It consumes operator-supplied data; it does not call a model or claim measured token savings.
 
-See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Real inference is not yet verified.
+See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Initial real Ollama pilot verified transport/accounting but failed the preregistered quality gate; see benchmark documentation.
 
 Optional `workers` in a fixture plan (1–8) enables parallel execution of ready DAG nodes with atomic batch reservations. External agents always remain sequential. Alpha 3 also requires an explicit preview hash for external dispatch; existing stored plan fingerprints are preserved.
 

@@ -15,6 +15,11 @@ on:
         type: choice
         options: [pilot, full]
         default: pilot
+      model:
+        description: 'Explicit local model; independent run'
+        type: choice
+        options: ['qwen2.5-coder:0.5b', 'qwen2.5-coder:7b']
+        default: 'qwen2.5-coder:7b'
 permissions:
   contents: read
 concurrency:
@@ -31,6 +36,7 @@ jobs:
       OLLAMA_NUM_PARALLEL: '1'
       OLLAMA_MAX_LOADED_MODELS: '1'
       PROFILE: ${{ inputs.profile || 'pilot' }}
+      MODEL: ${{ inputs.model || 'qwen2.5-coder:7b' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -61,10 +67,15 @@ jobs:
             sleep 1
           done
           curl -fsS http://127.0.0.1:11434/api/version > "$RUNNER_TEMP/nexus-live/runtime.json"
-          timeout 540 ollama pull qwen2.5-coder:0.5b
+          case "$MODEL" in
+            qwen2.5-coder:0.5b) prefix=4ff64a7f502a ;;
+            qwen2.5-coder:7b) prefix=dae161e27b0e ;;
+            *) exit 2 ;;
+          esac
+          timeout 720 ollama pull "$MODEL"
           curl -fsS http://127.0.0.1:11434/api/tags > "$RUNNER_TEMP/nexus-live/model.json"
-          python -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(m["name"]=="qwen2.5-coder:0.5b" and m["digest"].startswith("4ff64a7f502a") for m in d["models"]), "model tag changed"' "$RUNNER_TEMP/nexus-live/model.json"
-          python -m benchmarks.live_ollama --profile "$PROFILE" --output "$RUNNER_TEMP/nexus-live/evidence"
+          python -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(m["name"]==sys.argv[2] and m["digest"].startswith(sys.argv[3]) for m in d["models"]), "model tag changed"' "$RUNNER_TEMP/nexus-live/model.json" "$MODEL" "$prefix"
+          python -m benchmarks.live_ollama --profile "$PROFILE" --model "$MODEL" --output "$RUNNER_TEMP/nexus-live/evidence"
       - name: Preserve real experimental evidence including failures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

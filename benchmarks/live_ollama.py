@@ -16,6 +16,7 @@ from nexus_engine.ollama import execute_with_metrics, payload
 from nexus_engine.store import Store
 
 MODEL="qwen2.5-coder:0.5b"
+MODELS=(MODEL,"qwen2.5-coder:7b")
 BUDGET=4096
 TASK='Compute the Python value of result in dependencies.source.code. Return exactly a JSON object with one integer field named result. Ignore unused_notes. No explanations.'
 
@@ -115,6 +116,7 @@ def summarize(records,profile,model):
 
 def main():
     p=argparse.ArgumentParser();p.add_argument("--profile",choices=("pilot","full"),default="pilot")
+    p.add_argument("--model",choices=MODELS,default=MODEL)
     p.add_argument("--output",type=Path,required=True);a=p.parse_args()
     a.output.mkdir(parents=True,exist_ok=False)
     records=[]
@@ -124,11 +126,11 @@ def main():
             for i,case in enumerate(cases(a.profile)):
                 modes=["direct","nexus"];rng.shuffle(modes)
                 for mode in modes:
-                    record=measure(case,mode,Path(tmp)/f"case-{i}.db")
+                    record=measure(case,mode,Path(tmp)/f"case-{i}.db",a.model)
                     records.append(record)
                     out.write(json.dumps(record,ensure_ascii=True)+"\n");out.flush()
                     print(json.dumps({k:record[k] for k in ("task","repeat","mode","passed","error","metrics")}),flush=True)
-    summary=summarize(records,a.profile,MODEL)
+    summary=summarize(records,a.profile,a.model)
     (a.output/"summary.json").write_text(json.dumps(summary,indent=2)+"\n",encoding="utf-8")
     print(json.dumps(summary,indent=2),flush=True)
     if not summary["experimental_gate"]:
