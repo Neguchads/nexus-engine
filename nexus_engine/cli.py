@@ -3,7 +3,7 @@ import argparse
 import json
 import sqlite3
 from pathlib import Path
-from .contracts import LIMIT, Rejected, route, validate
+from .contracts import LIMIT, Rejected, decode, route, validate
 
 
 def read(path):
@@ -11,7 +11,7 @@ def read(path):
         raw=f.read(LIMIT+1)
     if len(raw)>LIMIT:
         raise Rejected("input exceeds limit")
-    return json.loads(raw)
+    return decode(raw)
 
 
 def main():

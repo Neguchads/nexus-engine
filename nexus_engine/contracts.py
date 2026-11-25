@@ -22,6 +22,23 @@ def encode(value):
     return raw
 
 
+def decode(raw):
+    """Reject ambiguous duplicate keys and non-finite JSON constants."""
+    def pairs(items):
+        result={}
+        for key,value in items:
+            if key in result:
+                raise Rejected("duplicate JSON key")
+            result[key]=value
+        return result
+    def constant(_):
+        raise Rejected("non-finite JSON constant")
+    try:
+        return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant)
+    except (ValueError,TypeError,RecursionError,UnicodeError) as exc:
+        raise Rejected("invalid or ambiguous JSON") from exc
+
+
 def digest(value):
     return hashlib.sha256(encode(value).encode()).hexdigest()
 

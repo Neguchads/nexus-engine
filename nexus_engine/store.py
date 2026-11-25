@@ -10,7 +10,7 @@ import secrets
 import sqlite3
 from contextlib import contextmanager
 from pathlib import Path
-from .contracts import Rejected, digest, encode, identifier, validate, validate_response
+from .contracts import Rejected, decode, digest, encode, identifier, validate, validate_response
 from .context import project
 
 SCHEMA = """
@@ -99,27 +99,27 @@ class Store:
         row = c.execute("SELECT plan,fingerprint FROM runs WHERE id=?", (run_id,)).fetchone()
         if row is None:
             raise Rejected("unknown run")
-        plan, order = validate(json.loads(row[0]))
+        plan, order = validate(decode(row[0]))
         if digest(plan) != row[1]:
             raise Rejected("plan integrity failure")
         known = {n["id"]:n for n in order}
         steps = {}
         for key, req, rh, ans, ah in c.execute(
                 "SELECT node,request,request_hash,answer,answer_hash FROM steps WHERE run_id=?", (run_id,)):
-            request = json.loads(req)
+            request = decode(req)
             if key not in known or digest(request) != rh:
                 raise Rejected("request integrity failure")
             node = known[key]
             if (request["run_id"] != run_id or request["node"] != key
                     or request["plan_hash"] != row[1] or request["host"] != plan["host"]
-                    or request["max_tokens"] != node["max_tokens"] or request["input"] != node["input"]):
+                    or encode(request["max_tokens"]) != encode(node["max_tokens"]) or encode(request["input"]) != encode(node["input"])):
                 raise Rejected("request does not match plan")
             if ans is None:
                 if ah is not None:
                     raise Rejected("invalid pending checkpoint")
                 answer = None
             else:
-                answer = validate_response(request,json.loads(ans))
+                answer = validate_response(request,decode(ans))
                 if digest([request,answer]) != ah:
                     raise Rejected("checkpoint integrity failure")
             steps[key] = (request,answer)
@@ -129,7 +129,7 @@ class Store:
             deps = known[key]["depends_on"]
             if any(d not in steps or steps[d][1] is None for d in deps):
                 raise Rejected("checkpoint dependency failure")
-            if request["dependencies"] != project(known[key],{d:steps[d][1]["output"] for d in deps}):
+            if encode(request["dependencies"]) != encode(project(known[key],{d:steps[d][1]["output"] for d in deps})):
                 raise Rejected("checkpoint dependency mismatch")
             pending += answer is None
         if pending > plan.get("workers", 1):
@@ -214,7 +214,7 @@ class Store:
                     continue
                 answer = validate_response(request,answer)
                 if old is not None:
-                    if old != answer:
+                    if encode(old) != encode(answer):
                         raise Rejected("conflicting completion")
                     return
                 c.execute("UPDATE steps SET answer=?,answer_hash=? WHERE run_id=? AND node=?",

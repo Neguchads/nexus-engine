@@ -1,6 +1,6 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a6.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a7.
 
 Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
@@ -47,3 +47,5 @@ Alpha 4 adds explicit dependency-field projection, conflict-rejecting JSON merge
 Alpha 5 adds database version marking, pinned CI actions, and an isolated real-inference experiment. The experiment is not production certification; inspect the evidence report and its scope.
 
 Alpha 6 adds explicit fixture-only backup promotion, private new database/export creation and a main-only prerelease workflow that publishes the exact tested wheel after the six-platform CI matrix passes. External snapshots remain sealed and no stable certification is implied.
+
+Alpha 7 hardens JSON parsing and completion equality, and introduces release-package inventory and a controlled repair-selection benchmark with a matched projected-context control.
