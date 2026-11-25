@@ -33,7 +33,7 @@ jobs:
         run: |
           repo="$PWD"
           cd "$RUNNER_TEMP"
-          python -I -c 'from nexus_engine import __version__; assert __version__ == "0.1.0a6"'
+          python -I -c 'from nexus_engine import __version__; assert __version__ == "0.1.0a7"'
           nexus-engine run "$repo/examples/simple.json"
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci
@@ -61,12 +61,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          wheel=dist-release/nexus_engine-0.1.0a6-py3-none-any.whl
+          wheel=dist-release/nexus_engine-0.1.0a7-py3-none-any.whl
           test -f "$wheel"
           test "$(find dist-release -type f -name '*.whl' | wc -l)" -eq 1
           python -m venv "$RUNNER_TEMP/nexus-release-venv"
           "$RUNNER_TEMP/nexus-release-venv/bin/python" -m pip install --no-index --no-deps "$wheel"
-          "$RUNNER_TEMP/nexus-release-venv/bin/python" -I -c 'from nexus_engine import __version__; import importlib.metadata as m; assert __version__=="0.1.0a6"; assert not m.requires("nexus-engine")'
+          "$RUNNER_TEMP/nexus-release-venv/bin/python" -I -c 'from nexus_engine import __version__; import importlib.metadata as m; assert __version__=="0.1.0a7"; assert not m.requires("nexus-engine")'
           (cd dist-release && sha256sum *.whl > SHA256SUMS)
           printf 'Research preview only. Source commit: %s\nVerification: https://github.com/%s/actions/runs/%s\nNo production certification or NAVI integration. See roadmap and security policy.\n' "$GITHUB_SHA" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID" > dist-release/RELEASE-NOTES.txt
       - name: Publish explicit alpha prerelease without overwriting
@@ -75,9 +75,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          tag=v0.1.0a6
+          tag=v0.1.0a7
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "Preview already exists; no overwrite"
             exit 0
           fi
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Nexus Engine 0.1.0 alpha 6" --notes-file dist-release/RELEASE-NOTES.txt dist-release/*.whl dist-release/SHA256SUMS
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease --title "Nexus Engine 0.1.0 alpha 7" --notes-file dist-release/RELEASE-NOTES.txt dist-release/*.whl dist-release/SHA256SUMS
