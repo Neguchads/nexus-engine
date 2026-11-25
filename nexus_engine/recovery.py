@@ -30,7 +30,7 @@ def snapshot(source,destination,*,seal=False):
         with restored.transaction() as c:
             c.execute("INSERT OR IGNORE INTO recovery_hold VALUES (1)")
         info=restored.verify_all()
-        with staged.open("rb") as f:
+        with staged.open("r+b") as f:
             os.fsync(f.fileno())
         os.link(staged,destination)
     return {"path":str(destination),"kind":"restored" if seal else "backup",**info}
