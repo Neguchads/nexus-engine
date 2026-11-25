@@ -1,0 +1,1 @@
+{"host":"ollama","budget":2048,"resume":true,"nodes":[{"id":"review","depends_on":[],"input":{"model":"qwen3.5:9b","task":"Return JSON with the correct sum of 2 and 2."},"max_tokens":2048}]}

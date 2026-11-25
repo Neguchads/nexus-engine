@@ -1,29 +1,41 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine**
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a2.
 
-Research and development project. Not production-ready.
+Nexus provides lightweight deterministic execution and a durable, sequential DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
-## Architecture goals
+## Quick start
 
-- Standalone engine, independent of NAVI and any mandatory AI provider.
-- One explicitly selected provider per execution; no implicit provider switching.
-- Lightweight execution for simple tasks; durable execution for complex workflows that need checkpoints and recovery.
-- Bounded execution, explicit permissions, deterministic verification and auditable results.
-- Optional integrations remain outside the mandatory core.
-- Cross-platform support is a target, not a certification claim.
+Python 3.11+:
 
-## Development gates
+```sh
+python -m pip install .
+nexus-engine plan examples/simple.json
+nexus-engine run examples/simple.json
+nexus-engine run examples/durable.json --db state.db --run-id demo
+nexus-engine run examples/durable.json --db state.db --run-id demo
+python -m unittest discover -s tests -v
+python -m benchmarks.compare
+```
 
-1. Establish a minimal standalone reference implementation.
-2. Evaluate reusable orchestration components for correctness, security, licensing and performance.
-3. Validate durable execution, failure recovery, concurrency and resource budgets.
-4. Compare against direct execution using reproducible paired benchmarks.
-5. Validate real providers independently and installation on Windows, Linux and macOS.
-6. Publish a stable release only after documented acceptance criteria pass.
+Lite skips SQLite for one-node deterministic tasks without resume. Durable validates a DAG, binds reservations to a run and node, records outputs and verifies hashes on recovery. Unsettled requests are never automatically dispatched again. The database must be owner-controlled and private.
 
-Future integrations, including NAVI, remain optional and must not precede independent qualification.
+## External agents
 
-## Status
+Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff identities**, not installed or authenticated integrations. Codex, Claude Code, Gemini and Copilot use manual handoffs. Ollama also has an experimental, explicit loopback adapter. No provider switching. See [handoff protocol](docs/HANDOFF.md).
 
-Initial development repository. No executable release or production certification yet. The MIT license applies to authorized repository contributions; third-party or legacy code must be cleared separately before inclusion.
+## Project status
+
+- Implemented candidate: adaptive fixture path, sequential durable DAG, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
+- CI targets Windows, Linux and macOS. Check actual results before claiming OS support.
+- No untrusted code sandbox, authenticated cloud integrations, verified token billing, parallel DAG workers, real AI benchmark or production certification.
+- The private AAF implementation is not distributed. Useful architectural patterns are reimplemented here; legacy parity remains to be measured.
+- NAVI integration is intentionally deferred and must remain optional.
+
+See [acceptance gates](docs/ROADMAP.md) and [security](SECURITY.md).
+
+Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence. Permanently stop an ambiguous run with `abandon --reason ... --confirm`; uncertainty remains charged and is never replayed. See handoff documentation.
+
+Real-provider evaluation has a paired-record validator: `python -m benchmarks.evaluate records.json`. See [measurement protocol](docs/BENCHMARK.md). It consumes operator-supplied data; it does not call a model or claim measured token savings.
+
+See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Real inference is not yet verified.

@@ -1,0 +1,1 @@
+{"host":"codex","budget":1000,"resume":true,"nodes":[{"id":"review","depends_on":[],"input":{"task":"Review this synthetic statement: 2 + 2 = 5. Return a correction."},"max_tokens":1000}]}
