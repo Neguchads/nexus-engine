@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import closing
 import tempfile
 import unittest
 from concurrent.futures import ThreadPoolExecutor
@@ -118,7 +119,7 @@ class EngineTests(unittest.TestCase):
     def test_artifact_integrity(self):
         s=Store(self.db);s.start("r",plan(resume=True));req=s.next("r")
         s.submit("r",response(req,5,1))
-        with sqlite3.connect(self.db) as c:
+        with closing(sqlite3.connect(self.db)) as c, c:
             c.execute("UPDATE steps SET answer=replace(answer,'5','6')")
         with self.assertRaises(Rejected):s.status("r")
 
@@ -167,6 +168,18 @@ class EngineTests(unittest.TestCase):
         self.assertEqual(next_req["dependencies"],{"A":5})
         s.submit("r",response(next_req,10,1))
         self.assertEqual(s.status("r")["outputs"],{"A":5,"B":10})
+
+
+    def test_process_exit_after_reservation(self):
+        import subprocess
+        import sys
+        s=Store(self.db);s.start("r",plan(resume=True))
+        code="import os,sys; from nexus_engine.store import Store; Store(sys.argv[1]).next('r'); os._exit(19)"
+        proc=subprocess.run([sys.executable,"-c",code,str(self.db)],timeout=20,check=False)
+        self.assertEqual(proc.returncode,19)
+        s=Store(self.db)
+        self.assertEqual(s.status("r")["reserved_or_reported"],3)
+        with self.assertRaisesRegex(Rejected,"unsettled"):s.next("r")
 
 
 if __name__=="__main__":unittest.main()

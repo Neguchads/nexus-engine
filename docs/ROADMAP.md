@@ -27,3 +27,5 @@ Pre-register task classes and success criteria before running. Compare same prov
 All required tests pass on three OSs; reproducible installation and versioned artifacts; no unexpected dispatch, implicit fallback, ambiguous replay or budget accounting regression; externally reviewed security boundaries and license clearance; real host acceptance and demonstrated value on declared task classes; documented upgrade/rollback and recovery procedure. Integration into NAVI is a later independent decision.
 
 The independent engine now exposes permanent abandonment and metadata-only evidence reports. This is a conservative reconciliation policy, not automatic crash recovery for external side effects.
+
+A paired-record evaluator is implemented in benchmarks/evaluate.py. No real AI measurements were supplied. The evaluator checks matched identities and minimum sample size, not independent authenticity or statistical significance. See docs/BENCHMARK.md.

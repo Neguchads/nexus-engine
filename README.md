@@ -35,3 +35,5 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 See [acceptance gates](docs/ROADMAP.md) and [security](SECURITY.md).
 
 Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence. Permanently stop an ambiguous run with `abandon --reason ... --confirm`; uncertainty remains charged and is never replayed. See handoff documentation.
+
+Real-provider evaluation has a paired-record validator: `python -m benchmarks.evaluate records.json`. See [measurement protocol](docs/BENCHMARK.md). It consumes operator-supplied data; it does not call a model or claim measured token savings.
