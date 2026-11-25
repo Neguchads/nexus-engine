@@ -1,0 +1,72 @@
+name: Nexus controlled engineering pilot
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/workflows/engineering.yml'
+      - 'benchmarks/engineering.py'
+      - 'benchmarks/repair_cases.py'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: nexus-engineering-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  live:
+    if: github.repository == 'Neguchads/nexus-engine' && (github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      OLLAMA_HOST: '127.0.0.1:11434'
+      OLLAMA_NO_CLOUD: '1'
+      OLLAMA_NUM_PARALLEL: '1'
+      OLLAMA_MAX_LOADED_MODELS: '1'
+      MODEL: 'qwen2.5-coder:7b'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
+        with:
+          python-version: '3.13'
+      - name: Download verified official runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/ollama-runtime" "$RUNNER_TEMP/nexus-live"
+          curl --fail --silent --show-error --location --retry 2 --max-time 420 https://github.com/ollama/ollama/releases/download/v0.40.18/ollama-linux-amd64.tar.zst -o "$RUNNER_TEMP/ollama.tar.zst"
+          printf '%s  %s\n' 'b82649006cb5b54ed1237fa2d1a26a7f939a4fd03150033759acbff7ff315adf' "$RUNNER_TEMP/ollama.tar.zst" | sha256sum --check
+          tar --zstd -xf "$RUNNER_TEMP/ollama.tar.zst" -C "$RUNNER_TEMP/ollama-runtime"
+      - name: Execute actual CPU model experiment
+        shell: bash
+        run: |
+          set -euo pipefail
+          export OLLAMA_MODELS="$RUNNER_TEMP/ollama-models"
+          export PATH="$RUNNER_TEMP/ollama-runtime/bin:$PATH"
+          export CUDA_VISIBLE_DEVICES=-1
+          ollama serve > "$RUNNER_TEMP/nexus-live/server.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:11434/api/version; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:11434/api/version > "$RUNNER_TEMP/nexus-live/runtime.json"
+          case "$MODEL" in
+            qwen2.5-coder:0.5b) prefix=4ff64a7f502a ;;
+            qwen2.5-coder:7b) prefix=dae161e27b0e ;;
+            *) exit 2 ;;
+          esac
+          timeout 720 ollama pull "$MODEL"
+          curl -fsS http://127.0.0.1:11434/api/tags > "$RUNNER_TEMP/nexus-live/model.json"
+          python -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(m["name"]==sys.argv[2] and m["digest"].startswith(sys.argv[3]) for m in d["models"]), "model tag changed"' "$RUNNER_TEMP/nexus-live/model.json" "$MODEL" "$prefix"
+          python -m benchmarks.engineering --output "$RUNNER_TEMP/nexus-live/evidence"
+      - name: Preserve real experimental evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: nexus-engineering-evidence
+          path: ${{ runner.temp }}/nexus-live
+          if-no-files-found: error
+          retention-days: 30
