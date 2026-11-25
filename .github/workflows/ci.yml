@@ -5,6 +5,9 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: nexus-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     strategy:
@@ -31,3 +34,8 @@ jobs:
           nexus-engine run "$repo/examples/simple.json"
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci
       - run: nexus-engine run examples/durable.json --db state.db --run-id ci
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nexus-wheel-${{ matrix.os }}-${{ matrix.python }}
+          path: dist/*.whl
+          if-no-files-found: error

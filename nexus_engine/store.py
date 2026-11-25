@@ -111,11 +111,13 @@ class Store:
             raise Rejected("abandonment integrity failure")
         return row is not None
 
-    def next(self, run_id, *, approved=False):
+    def next(self, run_id, *, approved=False, expected_host=None):
         with self.transaction() as c:
             plan,order,steps,charged = self._load(c,run_id)
             if self._abandoned(c,run_id):
                 raise Rejected("run permanently abandoned")
+            if expected_host is not None and plan["host"] != expected_host:
+                raise Rejected("selected host mismatch")
             if any(a is None for r,a in steps.values()):
                 # Never return the payload again as a new dispatch.
                 raise Rejected("unsettled request; reconcile manually, no redispatch")

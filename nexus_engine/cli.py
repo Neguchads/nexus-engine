@@ -17,14 +17,14 @@ def read(path):
 def main():
     p=argparse.ArgumentParser(prog="nexus-engine")
     sub=p.add_subparsers(dest="command",required=True)
-    for name in ("plan","run","start","next","submit","status","audit","abandon"):
+    for name in ("plan","run","start","next","submit","status","audit","abandon","ollama-step"):
         q=sub.add_parser(name)
         if name in ("plan","run","start"):
             q.add_argument("plan")
         if name!="plan":
             q.add_argument("--db",required=name!="run")
             q.add_argument("--run-id",required=name!="run")
-        if name=="next":
+        if name in ("next","ollama-step"):
             q.add_argument("--approve",action="store_true")
         if name=="submit":
             q.add_argument("answer")
@@ -50,6 +50,11 @@ def main():
             elif a.command=="submit":
                 store.submit(a.run_id,read(a.answer))
                 result=store.status(a.run_id)
+            elif a.command=="ollama-step":
+                if not a.approve:
+                    raise Rejected("explicit approval required for local HTTP dispatch")
+                from .ollama import step
+                result=step(store,a.run_id)
             elif a.command=="audit":
                 result=store.audit(a.run_id)
             elif a.command=="abandon":

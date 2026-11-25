@@ -29,3 +29,5 @@ All required tests pass on three OSs; reproducible installation and versioned ar
 The independent engine now exposes permanent abandonment and metadata-only evidence reports. This is a conservative reconciliation policy, not automatic crash recovery for external side effects.
 
 A paired-record evaluator is implemented in benchmarks/evaluate.py. No real AI measurements were supplied. The evaluator checks matched identities and minimum sample size, not independent authenticity or statistical significance. See docs/BENCHMARK.md.
+
+An experimental Ollama loopback transport is now implemented with mocked protocol tests. Real model inference and cross-provider native adapters remain acceptance gates; no cloud account is required for Core or the local transport.
