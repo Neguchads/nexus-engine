@@ -27,7 +27,7 @@ def payload(request):
             "options":{"num_predict":min(1024,request["max_tokens"]),"temperature":0}}
 
 
-def execute(request):
+def execute_with_metrics(request):
     body=encode(payload(request)).encode()
     conn=http.client.HTTPConnection("127.0.0.1",11434,timeout=60)
     try:
@@ -49,9 +49,14 @@ def execute(request):
         output=result.get("response")
         if not isinstance(output,str):
             raise Rejected("missing model output")
-        return validate_response(request,response(request,json.loads(output),sum(counts)))
+        answer=validate_response(request,response(request,json.loads(output),sum(counts)))
+        return answer,{"input_tokens":counts[0],"output_tokens":counts[1]}
     finally:
         conn.close()
+
+
+def execute(request):
+    return execute_with_metrics(request)[0]
 
 
 def step(store,run_id,approval_sha256):
