@@ -36,9 +36,20 @@ class Store:
             raise Rejected("use a private existing database parent")
         self.path = path
         with self.transaction() as conn:
+            # Mark and validate schema versions; older alpha DBs have version zero.
+            version=conn.execute("PRAGMA user_version").fetchone()[0]
+            app=conn.execute("PRAGMA application_id").fetchone()[0]
+            names={r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")}
+            allowed={"runs","steps","abandoned","artifacts","recovery_hold"}
+            if version not in (0,1) or app not in (0,1313167445) or names-allowed:
+                raise Rejected("unknown database format or version")
+            if names and not {"runs","steps","abandoned"}<=names:
+                raise Rejected("incomplete Nexus database schema")
             for statement in SCHEMA.split(";"):
                 if statement.strip():
                     conn.execute(statement)
+            conn.execute("PRAGMA application_id=1313167445")
+            conn.execute("PRAGMA user_version=1")
 
     @contextmanager
     def transaction(self):

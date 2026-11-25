@@ -35,3 +35,5 @@ An experimental Ollama loopback transport is now implemented with mocked protoco
 Alpha 3 adds bounded fixture-only parallel frontiers and content-bound external approval. Real-provider parallelism remains out of scope. AAF file-artifact permissions, merge semantics, independent security review and stress remain pending.
 
 Alpha 4 candidate adds strict JSON merge, logical dependency-scoped immutable file attachments, explicit context projection, integrity scans and sealed backup/restore for inspection. Full AAF equivalence, authenticated access, writable recovery and real token/quality gains are not claimed.
+
+Alpha 5 adds database-format checks, real-inference benchmark tooling and a pinned workflow. Live model results are an experimental gate, not full repository-engineering acceptance.
