@@ -53,7 +53,8 @@ def validate(plan):
         raise Rejected("invalid node count")
     known = set()
     for n in nodes:
-        if not isinstance(n, dict) or set(n) != {"id", "depends_on", "input", "max_tokens"}:
+        fields={"id","depends_on","input","max_tokens"}
+        if not isinstance(n,dict) or not fields <= set(n) or set(n)-fields-{"context"}:
             raise Rejected("invalid node fields")
         key, deps = n["id"], n["depends_on"]
         if not identifier(key) or key in known:
@@ -64,6 +65,19 @@ def validate(plan):
             raise Rejected("invalid dependencies")
         if not isinstance(n["input"], dict) or not positive(n["max_tokens"]):
             raise Rejected("invalid input or reservation")
+        if "context" in n:
+            policy=n["context"]
+            if (plan["host"]=="fixture" or not isinstance(policy,dict)
+                    or set(policy)!={"select","max_bytes"}
+                    or type(policy["max_bytes"]) is not int or not 2<=policy["max_bytes"]<=LIMIT
+                    or not isinstance(policy["select"],dict)
+                    or not set(policy["select"])<=set(deps)):
+                raise Rejected("invalid context policy")
+            for keys in policy["select"].values():
+                if (not isinstance(keys,list) or len(keys)>64
+                        or any(not isinstance(k,str) or not k or len(k)>128 for k in keys)
+                        or len(set(keys))!=len(keys)):
+                    raise Rejected("invalid context selection")
     if any(d not in known for n in nodes for d in n["depends_on"]):
         raise Rejected("unknown dependency")
     if sum(n["max_tokens"] for n in nodes) > plan["budget"]:

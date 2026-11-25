@@ -1,6 +1,6 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a3.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a4.
 
 Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
@@ -41,3 +41,5 @@ Real-provider evaluation has a paired-record validator: `python -m benchmarks.ev
 See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Real inference is not yet verified.
 
 Optional `workers` in a fixture plan (1–8) enables parallel execution of ready DAG nodes with atomic batch reservations. External agents always remain sequential. Alpha 3 also requires an explicit preview hash for external dispatch; existing stored plan fingerprints are preserved.
+
+Alpha 4 adds explicit dependency-field projection, conflict-rejecting JSON merge, immutable bounded file attachments, database verification and sealed backups. See [data operations](docs/DATA.md). These are owner-controlled local mechanisms, not multi-user authentication or proof of artifact origin. Snapshots are inspection-only to prevent replay from stale state.

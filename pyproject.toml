@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-engine"
-version = "0.1.0a3"
+version = "0.1.0a4"
 description = "Provider-independent orchestration engine"
 requires-python = ">=3.11"
 dependencies = []
