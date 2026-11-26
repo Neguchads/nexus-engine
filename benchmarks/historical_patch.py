@@ -156,7 +156,8 @@ def measure(case,mode,root,source):
 
 
 def main():
-    p=argparse.ArgumentParser();p.add_argument("--output",type=Path,required=True);a=p.parse_args()
+    p=argparse.ArgumentParser();p.add_argument("--output",type=Path,required=True)
+    p.add_argument("--controls-only",action="store_true");a=p.parse_args()
     a.output.mkdir(parents=True,exist_ok=False)
     rows=[];controls={};rng=random.Random(926)
     with tempfile.TemporaryDirectory() as tmp,(a.output/"records.jsonl").open("x",encoding="utf-8") as out:
@@ -170,11 +171,17 @@ def main():
             controls[case]={"unpatched_passed":baseline,"known_fix_passed":positive}
             if baseline or not positive:
                 raise RuntimeError("invalid independent regression control: "+case)
+            if a.controls_only:
+                continue
             modes=list(MODES);rng.shuffle(modes)
             for mode in modes:
                 work=root/(case+"-"+mode);work.mkdir()
                 row=measure(case,mode,work,source);rows.append(row)
                 out.write(json.dumps(row)+"\n");out.flush();print(json.dumps(row),flush=True)
+    (a.output/"controls.json").write_text(json.dumps(controls,indent=2)+"\n",encoding="utf-8")
+    if a.controls_only:
+        print(json.dumps(controls,indent=2))
+        return
     result={}
     for mode in MODES:
         rs=[r for r in rows if r["mode"]==mode]

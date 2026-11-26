@@ -1,7 +1,7 @@
 name: Nexus historical source repair pilot
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feat/upgrade-rollback-assurance]
     paths:
       - '.github/workflows/historical-repair.yml'
       - 'benchmarks/historical_patch.py'
@@ -31,6 +31,8 @@ jobs:
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.13'
+      - name: Verify historical negative and positive controls before inference
+        run: python -m benchmarks.historical_patch --controls-only --output "${{ runner.temp }}/nexus-live/controls"
       - name: Download verified official runtime
         shell: bash
         run: |
