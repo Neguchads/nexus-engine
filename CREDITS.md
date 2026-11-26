@@ -1,6 +1,8 @@
 # Credits and provenance
 
-Nexus Engine is maintained by Neguchads and contributors. See [LICENSE](LICENSE) for the repository's MIT terms. The README describes a standalone research implementation and states that the private AAF implementation is not distributed. Architectural patterns and independently written code must be distinguished from copied source; no broader rights to AAF material are asserted here.
+Nexus Engine and AAF Core are original projects developed by Gustavo (Neguchads), as confirmed by the project owner. Nexus Engine is a standalone project drawing on architectural experience from the author's own AAF Core. The private AAF Core implementation is not distributed by this repository.
+
+**Copyright (c) 2026 Gustavo (Neguchads)** — original Nexus Engine contributions, under the existing [MIT License](LICENSE). The original AAF Core is credited to the same author; no separate AAF Core license or permission to redistribute its private source is granted by this notice. Third-party contributions and dependencies retain their own applicable rights and notices.
 
 Codex (OpenAI), Claude Code (Anthropic), Gemini (Google), GitHub Copilot (GitHub) and Ollama are external alternative host/handoff or local adapter targets; none is represented as a Nexus product or simultaneous runtime dependency. Their names identify interoperability, not affiliation or endorsement.
 
