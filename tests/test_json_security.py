@@ -8,7 +8,7 @@ from nexus_engine.store import Store
 
 class JsonSecurityTests(unittest.TestCase):
     def test_ambiguous_json(self):
-        for raw in ('{"a":1,"a":2}', '{"a":{"x":1,"x":2}}', '{"a":NaN}', '{"a":Infinity}', '{"a":-Infinity}'):
+        for raw in ('{"a":1,"a":2}', '{"a":{"x":1,"x":2}}', '{"a":NaN}', '{"a":Infinity}', '{"a":-Infinity}', '{"a":1e400}', '{"a":-1e400}'):
             with self.assertRaises(Rejected):decode(raw)
 
     def test_cli_rejects_duplicate_keys(self):

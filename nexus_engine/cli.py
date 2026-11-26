@@ -15,7 +15,9 @@ def read(path):
 
 
 def main():
+    from . import __version__
     p=argparse.ArgumentParser(prog="nexus-engine")
+    p.add_argument("--version",action="version",version=__version__)
     sub=p.add_subparsers(dest="command",required=True)
     for name in ("plan","run","start","preview","next","submit","status","audit","abandon","ollama-step","context","merge","attach","artifact","verify-db","backup","restore","recover-fixtures","codex-import"):
         q=sub.add_parser(name)

@@ -1,6 +1,6 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a8.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a9.
 
 Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
@@ -27,8 +27,8 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 ## Project status
 
 - Implemented candidate: adaptive fixture path, durable DAG with optional bounded deterministic parallelism, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
-- CI targets Windows, Linux and macOS. Check actual results before claiming OS support.
-- No untrusted code sandbox, authenticated cloud integrations, verified token billing, real AI benchmark or production certification.
+- CI tests Windows, Linux and macOS; refer to the exact release's verification results.
+- No untrusted code sandbox, authenticated cloud integrations, verified token billing or production certification.
 - The private AAF implementation is not distributed. Useful architectural patterns are reimplemented here; legacy parity remains to be measured.
 - NAVI integration is intentionally deferred and must remain optional.
 
@@ -38,7 +38,7 @@ Use `nexus-engine audit --db state.db --run-id demo` for metadata-only evidence.
 
 Real-provider evaluation has a paired-record validator: `python -m benchmarks.evaluate records.json`. See [measurement protocol](docs/BENCHMARK.md). It consumes operator-supplied data; it does not call a model or claim measured token savings.
 
-See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Initial real Ollama pilot verified transport/accounting but failed the preregistered quality gate; see benchmark documentation.
+See [optional local Ollama adapter](docs/OLLAMA.md) for the experimental HTTP path. Real Ollama pilots verify transport/accounting; the 0.5B quality gate failed, while 7B controlled pilots passed. See benchmark documentation for limitations.
 
 Optional `workers` in a fixture plan (1–8) enables parallel execution of ready DAG nodes with atomic batch reservations. External agents always remain sequential. Alpha 3 also requires an explicit preview hash for external dispatch; existing stored plan fingerprints are preserved.
 
@@ -51,3 +51,5 @@ Alpha 6 adds explicit fixture-only backup promotion, private new database/export
 Alpha 7 hardens JSON parsing and completion equality, and introduces release-package inventory and a controlled repair-selection benchmark with a matched projected-context control.
 
 For a locally authorized Codex CLI session, the optional codex-import command settles a reviewed single-turn JSONL trace using CLI-reported usage. Nexus never starts Codex, accesses its account or switches providers. See docs/HANDOFF.md.
+
+Alpha 9 adds a CLI version command, rejects overflowed JSON numbers, and tests upgrades from exact released alpha 6 and alpha 8 wheels with isolated deterministic rollback and uninstall checks. See docs/DATA.md and CI evidence; no external-provider rollback is supported.
