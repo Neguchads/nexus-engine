@@ -21,3 +21,5 @@ New local files use exclusive creation and owner-only POSIX mode, and databases 
 Alpha 7 rejects duplicate JSON keys and non-finite constants at input, storage and model-response boundaries. Completion idempotency uses canonical JSON equality, distinguishing booleans from integers. These are local integrity controls, not independent audit sign-off.
 
 The optional Codex trace importer reads a bounded local JSONL file, rejects failed or ambiguous turns and binds the normalized answer to an existing reserved request. It never executes a provider or accesses credentials. CLI logs are operator-provided and not cryptographically attested.
+
+JSON decoding also rejects finite-looking numeric literals that overflow to infinity. Released-wheel migration tests preserve pending external requests and verify isolated rollback from a pre-upgrade deterministic snapshot, never an authoritative downgraded database.

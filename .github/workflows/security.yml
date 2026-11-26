@@ -1,16 +1,6 @@
 name: Nexus runtime security analysis
 on:
-  pull_request:
-    paths:
-      - 'nexus_engine/**'
-      - '.github/workflows/security.yml'
-      - 'scripts/sarif_gate.py'
-  push:
-    branches: [main]
-    paths:
-      - 'nexus_engine/**'
-      - '.github/workflows/security.yml'
-      - 'scripts/sarif_gate.py'
+  workflow_call:
   workflow_dispatch:
 permissions:
   contents: read
