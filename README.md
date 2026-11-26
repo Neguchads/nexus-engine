@@ -29,7 +29,7 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 - Implemented candidate: adaptive fixture path, durable DAG with optional bounded deterministic parallelism, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
 - CI targets Windows, Linux and macOS. Check actual results before claiming OS support.
 - No untrusted code sandbox, authenticated cloud integrations, verified token billing, real AI benchmark or production certification.
-- The private AAF implementation is not distributed. Useful architectural patterns are reimplemented here; legacy parity remains to be measured.
+- AAF Core and Nexus Engine are original projects developed by Gustavo (Neguchads). Nexus draws on architectural experience from the author's own AAF Core; the private AAF Core implementation is not distributed. Legacy parity remains to be measured.
 - NAVI integration is intentionally deferred and must remain optional.
 
 See [acceptance gates](docs/ROADMAP.md) and [security](SECURITY.md).
