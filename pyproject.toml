@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nexus-engine"
-version = "0.1.0a9"
+version = "0.1.0a10"
 description = "Provider-independent orchestration engine"
 requires-python = ">=3.11"
 dependencies = []
@@ -13,6 +13,9 @@ license = {file = "LICENSE"}
 
 [project.scripts]
 nexus-engine = "nexus_engine.cli:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "CREDITS.md"]
 
 [tool.setuptools.packages.find]
 include = ["nexus_engine*"]

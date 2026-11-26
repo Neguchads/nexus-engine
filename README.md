@@ -1,6 +1,6 @@
 # Nexus Engine
 
-**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a9.
+**Adaptive Agent Orchestration Engine** — MIT-licensed standalone research preview, v0.1.0a10.
 
 Nexus provides lightweight deterministic execution and a durable DAG journal with single-provider selection. It does not require NAVI, an AI subscription or a provider SDK. The standard library is the only runtime dependency.
 
@@ -29,7 +29,7 @@ Codex, Claude Code, Gemini, Copilot and Ollama are **alternative manual handoff 
 - Implemented candidate: adaptive fixture path, durable DAG with optional bounded deterministic parallelism, reservations, transactional journal, integrity checks, explicit manual handoffs and synthetic benchmark.
 - CI tests Windows, Linux and macOS; refer to the exact release's verification results.
 - No untrusted code sandbox, authenticated cloud integrations, verified token billing or production certification.
-- The private AAF implementation is not distributed. Useful architectural patterns are reimplemented here; legacy parity remains to be measured.
+- AAF Core and Nexus Engine are original projects developed by Gustavo (Neguchads). Nexus draws on architectural experience from the author's own AAF Core; the private AAF Core implementation is not distributed. See [AAF capability review](docs/AAF-PARITY.md) for the supported scope.
 - NAVI integration is intentionally deferred and must remain optional.
 
 See [acceptance gates](docs/ROADMAP.md) and [security](SECURITY.md).
@@ -53,3 +53,7 @@ Alpha 7 hardens JSON parsing and completion equality, and introduces release-pac
 For a locally authorized Codex CLI session, the optional codex-import command settles a reviewed single-turn JSONL trace using CLI-reported usage. Nexus never starts Codex, accesses its account or switches providers. See docs/HANDOFF.md.
 
 Alpha 9 adds a CLI version command, rejects overflowed JSON numbers, and tests upgrades from exact released alpha 6 and alpha 8 wheels with isolated deterministic rollback and uninstall checks. See docs/DATA.md and CI evidence; no external-provider rollback is supported.
+
+[Open-source credits, provenance and distribution review](CREDITS.md).
+
+Alpha 10 consolidates the author credits, license notices, historical source repair evidence, and same-revision security/upgrade gates before prerelease publication. The current scope is a trusted-owner local orchestration research preview, not a general autonomous coding agent or sandbox.
