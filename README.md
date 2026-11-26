@@ -51,3 +51,5 @@ Alpha 6 adds explicit fixture-only backup promotion, private new database/export
 Alpha 7 hardens JSON parsing and completion equality, and introduces release-package inventory and a controlled repair-selection benchmark with a matched projected-context control.
 
 For a locally authorized Codex CLI session, the optional codex-import command settles a reviewed single-turn JSONL trace using CLI-reported usage. Nexus never starts Codex, accesses its account or switches providers. See docs/HANDOFF.md.
+
+[Open-source credits, provenance and distribution review](CREDITS.md).
