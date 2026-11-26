@@ -1,6 +1,7 @@
 """Bounded data contracts; no executable configuration."""
 import hashlib
 import json
+import math
 import re
 
 HOSTS = frozenset(("fixture", "codex", "claude", "gemini", "copilot", "ollama"))
@@ -33,8 +34,13 @@ def decode(raw):
         return result
     def constant(_):
         raise Rejected("non-finite JSON constant")
+    def finite_float(token):
+        value=float(token)
+        if not math.isfinite(value):
+            raise Rejected("non-finite JSON number")
+        return value
     try:
-        return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant)
+        return json.loads(raw,object_pairs_hook=pairs,parse_constant=constant,parse_float=finite_float)
     except (ValueError,TypeError,RecursionError,UnicodeError) as exc:
         raise Rejected("invalid or ambiguous JSON") from exc
 

@@ -41,3 +41,5 @@ Alpha 5 adds database-format checks, real-inference benchmark tooling and a pinn
 Alpha 6 candidate adds deterministic-only operational recovery and a gated versioned preview distribution. External replay remains prohibited. Full engineering benchmark, independent audit, production-grade provider validation and NAVI adapter are still separate acceptance gates.
 
 Alpha 7 candidate adds strict JSON parsing and canonical completion checks. Engineering evidence distinguishes full context, direct projected context, and Nexus projected context; repair selection is a bounded task, not arbitrary repository modification. Independent audit and real end-to-end agent engineering remain gates.
+
+Alpha 9 adds exact released-wheel upgrade, isolated deterministic rollback and uninstall verification in the six-platform CI matrix. Prior public wheel hashes are pinned. Independent human security review and representative autonomous engineering remain open gates.
